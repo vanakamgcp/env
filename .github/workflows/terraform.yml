@@ -41,16 +41,26 @@ jobs:
       # 📦 Deploy (initial version: deploy all folders)
       - name: Terraform Deploy (All Devs)
         run: |
-          for dir in $(find env/dev -maxdepth 1 -mindepth 1 -type d); do
+          echo "Listing repo root:"
+          ls -la
+      
+          for dir in $(find . -maxdepth 1 -mindepth 1 -type d); do
             echo "-----------------------------"
-            echo "Deploying $dir"
+            echo "Checking $dir"
             echo "-----------------------------"
-
-            cd $dir
-
-            terraform init
-            terraform plan
-            terraform apply -auto-approve
-
-            cd -
+      
+            # Only run if main.tf exists
+            if [ -f "$dir/main.tf" ]; then
+              echo "Deploying Terraform in $dir"
+      
+              cd $dir
+      
+              terraform init
+              terraform plan
+              terraform apply -auto-approve
+      
+              cd -
+            else
+              echo "Skipping $dir (no main.tf)"
+            fi
           done
