@@ -11,3 +11,4 @@ resource "google_project_iam_member" "developer_roles" {
   role    = each.value.role
   member  = "user:${each.value.user}"
 }
+
