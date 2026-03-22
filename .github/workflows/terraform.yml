@@ -134,22 +134,33 @@ jobs:
       # 🚀 Terraform Deploy (only changed folders)
       - name: Terraform Deploy
         run: |
-          for dir in ${{ steps.changes.outputs.dirs }}; do
+          echo "Detecting Terraform directories under dev/..."
+      
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            files=$(git diff --name-only HEAD~1)
+          else
+            files=$(git ls-files)
+          fi
+      
+          echo "Changed files:"
+          echo "$files"
+      
+          # Find all directories under dev/ that contain main.tf
+          dirs=$(find dev -type f -name "main.tf" -exec dirname {} \; | sort -u)
+      
+          echo "Terraform directories found:"
+          echo "$dirs"
+      
+          for dir in $dirs; do
             echo "-----------------------------"
             echo "Processing $dir"
             echo "-----------------------------"
-
-            if [ -d "$dir" ] && [ -f "$dir/main.tf" ]; then
-              echo "Deploying Terraform in $dir"
-
-              cd $dir
-
-              terraform init
-              terraform plan
-              terraform apply -auto-approve
-
-              cd -
-            else
-              echo "Skipping $dir (no Terraform config)"
-            fi
+      
+            cd $dir
+      
+            terraform init
+            terraform plan
+            terraform apply -auto-approve
+      
+            cd -
           done
