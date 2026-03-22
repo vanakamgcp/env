@@ -116,17 +116,20 @@ jobs:
           else
             files=$(git ls-files)
           fi
-
+      
           echo "Changed files:"
           echo "$files"
-
-          # Extract dev/<developer> folders only
-          dirs=$(echo "$files" | grep '^dev/' | cut -d/ -f1-2 | sort -u)
-
-          echo "Detected directories:"
+      
+          # Extract only valid dev/<folder> paths (ignore files like .md)
+          dirs=$(echo "$files" | grep '^dev/' | awk -F/ 'NF>=2 {print $1"/"$2}' | sort -u)
+      
+          echo "Filtered directories:"
           echo "$dirs"
-
-          echo "dirs=$dirs" >> $GITHUB_OUTPUT
+      
+          # Convert to space-separated (IMPORTANT for GitHub output)
+          dirs_single_line=$(echo "$dirs" | tr '\n' ' ')
+      
+          echo "dirs=$dirs_single_line" >> $GITHUB_OUTPUT
 
       # 🚀 Terraform Deploy (only changed folders)
       - name: Terraform Deploy
