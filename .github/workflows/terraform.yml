@@ -44,12 +44,14 @@ jobs:
           echo "Listing repo root:"
           ls -la
       
-          for dir in $(find . -maxdepth 1 -mindepth 1 -type d); do
+          echo "Listing dev folder:"
+          ls -la dev
+      
+          for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
             echo "-----------------------------"
             echo "Checking $dir"
             echo "-----------------------------"
       
-            # Only run if main.tf exists
             if [ -f "$dir/main.tf" ]; then
               echo "Deploying Terraform in $dir"
       
