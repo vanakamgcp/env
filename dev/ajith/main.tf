@@ -11,6 +11,6 @@ provider "google" {
 }
 
 resource "google_storage_bucket" "test_bucket" {
-  name     = "ajith-test-bucket-1234"
+  name     = "ajith-test-bucket-1"
   location = "us-central1"
 }
