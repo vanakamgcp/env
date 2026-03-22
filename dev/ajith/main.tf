@@ -14,4 +14,3 @@ resource "google_storage_bucket" "test_bucket" {
   name     = "ajith-test-bucket"
   location = "us-central1"
 }
-
