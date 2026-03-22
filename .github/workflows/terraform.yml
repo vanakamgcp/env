@@ -41,7 +41,7 @@ jobs:
       # 📦 Deploy (initial version: deploy all folders)
       - name: Terraform Deploy (All Devs)
         run: |
-          for dir in $(find envs/dev -maxdepth 1 -mindepth 1 -type d); do
+          for dir in $(find env/dev -maxdepth 1 -mindepth 1 -type d); do
             echo "-----------------------------"
             echo "Deploying $dir"
             echo "-----------------------------"
