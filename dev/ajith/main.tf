@@ -4,3 +4,13 @@ terraform {
     prefix  = "dev/ajith"
   }
 }
+
+provider "google" {
+  project = "gcp-de-feb26"
+  region  = "us-central1"
+}
+
+resource "google_storage_bucket" "test_bucket" {
+  name     = "ajith-test-bucket-12345"
+  location = "US-CENTRAL1"
+}
