@@ -2,8 +2,8 @@ name: Deploy to GCP (Terraform)
 
 on:
   push:
-    paths:
-      - 'env/dev/**'
+    # paths:
+    #   - 'env/dev/**'
 
 jobs:
   deploy:
