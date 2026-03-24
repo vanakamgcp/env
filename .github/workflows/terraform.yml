@@ -2,8 +2,8 @@
 
 # on:
 #   push:
-#     # paths:
-#     #   - 'env/dev/**'
+#     paths:
+#       - 'dev/**'   # ✅ trigger only when dev folder changes
 
 # jobs:
 #   deploy:
@@ -11,13 +11,14 @@
 
 #     permissions:
 #       contents: read
-#       id-token: write   # REQUIRED for OIDC
+#       id-token: write   # ✅ required for OIDC
 
 #     steps:
+#       # 📥 Checkout repo
 #       - name: Checkout Code
 #         uses: actions/checkout@v4
 
-#       # 🔐 Authenticate to GCP (Phase 1)
+#       # 🔐 Authenticate to GCP (OIDC)
 #       - name: Authenticate to GCP
 #         uses: google-github-actions/auth@v2
 #         with:
@@ -32,83 +33,97 @@
 #       - name: Setup Terraform
 #         uses: hashicorp/setup-terraform@v3
 
-#       # 🔍 Debug (VERY IMPORTANT for you since no local setup)
-#       - name: Show changed files
+#       # 🔍 Debug: show repo structure (helps troubleshooting)
+#       - name: Show repo structure
 #         run: |
-#           echo "Changed files:"
-#           git diff --name-only HEAD~1 || true
+#           echo "Repo structure:"
+#           ls -R
 
-#       # 📦 Deploy (initial version: deploy all folders)
-#       - name: Terraform Deploy (All Devs)
+#       # 🔎 Detect changed folders safely
+#       - name: Detect changed folders
+#         id: changes
 #         run: |
-#           echo "Listing repo root:"
-#           ls -la
+#           if git rev-parse HEAD~1 >/dev/null 2>&1; then
+#             files=$(git diff --name-only HEAD~1)
+#           else
+#             files=$(git ls-files)
+#           fi
       
-#           echo "Listing dev folder:"
-#           ls -la dev
+#           echo "Changed files:"
+#           echo "$files"
       
-#           for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
+#           # Extract only valid dev/<folder> paths (ignore files like .md)
+#           dirs=$(echo "$files" | grep '^dev/' | awk -F/ 'NF>=2 {print $1"/"$2}' | sort -u)
+      
+#           echo "Filtered directories:"
+#           echo "$dirs"
+      
+#           # Convert to space-separated (IMPORTANT for GitHub output)
+#           dirs_single_line=$(echo "$dirs" | tr '\n' ' ')
+      
+#           echo "dirs=$dirs_single_line" >> $GITHUB_OUTPUT
+
+#       # 🚀 Terraform Deploy (only changed folders)
+#       - name: Terraform Deploy
+#         run: |
+#           echo "Detecting Terraform directories under dev/..."
+      
+#           if git rev-parse HEAD~1 >/dev/null 2>&1; then
+#             files=$(git diff --name-only HEAD~1)
+#           else
+#             files=$(git ls-files)
+#           fi
+      
+#           echo "Changed files:"
+#           echo "$files"
+      
+#           # Find all directories under dev/ that contain main.tf
+#           dirs=$(find dev -type f -name "main.tf" -exec dirname {} \; | sort -u)
+      
+#           echo "Terraform directories found:"
+#           echo "$dirs"
+      
+#           for dir in $dirs; do
 #             echo "-----------------------------"
-#             echo "Checking $dir"
+#             echo "Processing $dir"
 #             echo "-----------------------------"
       
-#             if [ -f "$dir/main.tf" ]; then
-#               echo "Deploying Terraform in $dir"
+#             cd $dir
       
-#               cd $dir
+#             terraform init
+#             terraform plan
+#             terraform apply -auto-approve
       
-#               terraform init
-#               terraform plan
-#               terraform apply -auto-approve
-      
-#               cd -
-#             else
-#               echo "Skipping $dir (no main.tf)"
-#             fi
+#             cd -
 #           done
-name: Deploy to GCP (Terraform)
+
+name: GCP Terraform CI/CD
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - 'dev/**'   # ✅ trigger only when dev folder changes
+      - 'dev/**'
+  pull_request:
+    paths:
+      - 'dev/**'
 
 jobs:
-  deploy:
+  terraform:
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      id-token: write   # ✅ required for OIDC
+      id-token: write
 
     steps:
-      # 📥 Checkout repo
+      # 📥 Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 🔐 Authenticate to GCP (OIDC)
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      # ☁️ Setup gcloud
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      # 🏗 Install Terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      # 🔍 Debug: show repo structure (helps troubleshooting)
-      - name: Show repo structure
-        run: |
-          echo "Repo structure:"
-          ls -R
-
-      # 🔎 Detect changed folders safely
-      - name: Detect changed folders
+      # 🔍 Detect changed files
+      - name: Detect Changes
         id: changes
         run: |
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
@@ -116,51 +131,95 @@ jobs:
           else
             files=$(git ls-files)
           fi
-      
-          echo "Changed files:"
-          echo "$files"
-      
-          # Extract only valid dev/<folder> paths (ignore files like .md)
-          dirs=$(echo "$files" | grep '^dev/' | awk -F/ 'NF>=2 {print $1"/"$2}' | sort -u)
-      
-          echo "Filtered directories:"
-          echo "$dirs"
-      
-          # Convert to space-separated (IMPORTANT for GitHub output)
-          dirs_single_line=$(echo "$dirs" | tr '\n' ' ')
-      
-          echo "dirs=$dirs_single_line" >> $GITHUB_OUTPUT
 
-      # 🚀 Terraform Deploy (only changed folders)
-      - name: Terraform Deploy
-        run: |
-          echo "Detecting Terraform directories under dev/..."
-      
-          if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            files=$(git diff --name-only HEAD~1)
-          else
-            files=$(git ls-files)
-          fi
-      
           echo "Changed files:"
           echo "$files"
-      
-          # Find all directories under dev/ that contain main.tf
-          dirs=$(find dev -type f -name "main.tf" -exec dirname {} \; | sort -u)
-      
-          echo "Terraform directories found:"
-          echo "$dirs"
-      
-          for dir in $dirs; do
-            echo "-----------------------------"
-            echo "Processing $dir"
-            echo "-----------------------------"
-      
-            cd $dir
-      
-            terraform init
-            terraform plan
-            terraform apply -auto-approve
-      
-            cd -
+
+          dirs=$(echo "$files" | grep '^dev/' | awk -F/ 'NF>=2 {print $1"/"$2}' | sort -u | tr '\n' ' ')
+          echo "dirs=$dirs" >> $GITHUB_OUTPUT
+
+      # 🔐 Select Service Account (IAM vs Infra)
+      - name: Select Service Account
+        id: sa
+        run: |
+          if echo "${{ steps.changes.outputs.dirs }}" | grep -q "dev/devops"; then
+            echo "SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT_IAM }}" >> $GITHUB_OUTPUT
+          else
+            echo "SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_OUTPUT
+          fi
+
+      # 🔐 Authenticate
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ steps.sa.outputs.SERVICE_ACCOUNT }}
+
+      # ☁️ Setup gcloud
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 🏗 Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # 🔐 Terraform Format Check
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      # 🔐 Terraform Validate
+      - name: Terraform Validate
+        run: |
+          for dir in ${{ steps.changes.outputs.dirs }}; do
+            if [ -f "$dir/main.tf" ]; then
+              cd $dir
+              terraform init -backend=false
+              terraform validate
+              cd -
+            fi
+          done
+
+      # 🔍 Security Scan (Checkov)
+      - name: Run Checkov (Security Scan)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          quiet: true
+          soft_fail: true   # don't fail pipeline yet (can enforce later)
+
+      # 📦 Terraform Init
+      - name: Terraform Init
+        run: |
+          for dir in ${{ steps.changes.outputs.dirs }}; do
+            if [ -f "$dir/main.tf" ]; then
+              echo "Initializing $dir"
+              cd $dir
+              terraform init
+              cd -
+            fi
+          done
+
+      # 📊 Terraform Plan (Visible in PR)
+      - name: Terraform Plan
+        run: |
+          for dir in ${{ steps.changes.outputs.dirs }}; do
+            if [ -f "$dir/main.tf" ]; then
+              echo "Planning $dir"
+              cd $dir
+              terraform plan -no-color
+              cd -
+            fi
+          done
+
+      # 🚀 Terraform Apply (ONLY on main)
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          for dir in ${{ steps.changes.outputs.dirs }}; do
+            if [ -f "$dir/main.tf" ]; then
+              echo "Applying $dir"
+              cd $dir
+              terraform apply -auto-approve
+              cd -
+            fi
           done
