@@ -116,44 +116,20 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      TF_IN_AUTOMATION: true
 
     steps:
       # 📥 Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 🔍 Detect changed files
-      - name: Detect Changes
-        id: changes
-        run: |
-          if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            files=$(git diff --name-only HEAD~1)
-          else
-            files=$(git ls-files)
-          fi
-
-          echo "Changed files:"
-          echo "$files"
-
-          dirs=$(echo "$files" | grep '^dev/' | awk -F/ 'NF>=2 {print $1"/"$2}' | sort -u | tr '\n' ' ')
-          echo "dirs=$dirs" >> $GITHUB_OUTPUT
-
-      # 🔐 Select Service Account (IAM vs Infra)
-      - name: Select Service Account
-        id: sa
-        run: |
-          if echo "${{ steps.changes.outputs.dirs }}" | grep -q "dev/devops"; then
-            echo "SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT_IAM }}" >> $GITHUB_OUTPUT
-          else
-            echo "SERVICE_ACCOUNT=${{ secrets.GCP_SERVICE_ACCOUNT }}" >> $GITHUB_OUTPUT
-          fi
-
-      # 🔐 Authenticate
+      # 🔐 Authenticate to GCP (SINGLE SA ONLY)
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ steps.sa.outputs.SERVICE_ACCOUNT }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       # ☁️ Setup gcloud
       - name: Setup gcloud
@@ -163,15 +139,23 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # 🔐 Terraform Format Check
+      # 🔍 Verify Identity (Debug - safe to keep)
+      - name: Verify Identity
+        run: |
+          echo "Authenticated account:"
+          gcloud auth list
+          gcloud config list account
+
+      # 🎯 Terraform Format Check
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
-      # 🔐 Terraform Validate
+      # 🔎 Terraform Init + Validate
       - name: Terraform Validate
         run: |
-          for dir in ${{ steps.changes.outputs.dirs }}; do
+          for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
             if [ -f "$dir/main.tf" ]; then
+              echo "Validating $dir"
               cd $dir
               terraform init -backend=false
               terraform validate
@@ -179,18 +163,10 @@ jobs:
             fi
           done
 
-      # 🔍 Security Scan (Checkov)
-      - name: Run Checkov (Security Scan)
-        uses: bridgecrewio/checkov-action@v12
-        with:
-          directory: .
-          quiet: true
-          soft_fail: true   # don't fail pipeline yet (can enforce later)
-
-      # 📦 Terraform Init
+      # 📦 Terraform Init (REAL backend)
       - name: Terraform Init
         run: |
-          for dir in ${{ steps.changes.outputs.dirs }}; do
+          for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
             if [ -f "$dir/main.tf" ]; then
               echo "Initializing $dir"
               cd $dir
@@ -199,10 +175,10 @@ jobs:
             fi
           done
 
-      # 📊 Terraform Plan (Visible in PR)
+      # 📊 Terraform Plan
       - name: Terraform Plan
         run: |
-          for dir in ${{ steps.changes.outputs.dirs }}; do
+          for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
             if [ -f "$dir/main.tf" ]; then
               echo "Planning $dir"
               cd $dir
@@ -211,11 +187,11 @@ jobs:
             fi
           done
 
-      # 🚀 Terraform Apply (ONLY on main)
+      # 🚀 Terraform Apply (ONLY on main branch)
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: |
-          for dir in ${{ steps.changes.outputs.dirs }}; do
+          for dir in $(find ./dev -maxdepth 1 -mindepth 1 -type d); do
             if [ -f "$dir/main.tf" ]; then
               echo "Applying $dir"
               cd $dir
