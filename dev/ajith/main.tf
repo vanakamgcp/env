@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
-    bucket  = "tf-state-gcp-de-feb26"
-    prefix  = "dev/ajith"
+    bucket = "tf-state-gcp-de-feb26"
+    prefix = "dev/ajith"
   }
 }
 
@@ -11,6 +11,7 @@ provider "google" {
 }
 
 resource "google_storage_bucket" "test_bucket" {
-  name     = "ajith-test-bucket-0"
+  name     = "ajith-test-bucket-1"
   location = "us-central1"
 }
+
