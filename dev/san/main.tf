@@ -47,7 +47,7 @@ resource "google_bigquery_dataset" "ds_mar26_test" {
   dataset_id                  = var.bq_dataset_id
   project                     = var.project_id
   location                    = var.region
-  default_table_expiration_ms = 86400000  # 1 day expiration (optional)
+  default_table_expiration_ms = 86400000 # 1 day expiration (optional)
   labels = {
     environment = "dev"
     owner       = var.bucket_suffix
