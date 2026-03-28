@@ -1,3 +1,5 @@
-project_id    = "gcp-de-feb26"
-region        = "US"
-bucket_suffix = "san"
+project_id     = "gcp-de-feb26"
+region         = "US"
+bucket_suffix  = "san"
+bq_dataset_id  = "ds_mar26_test"
+bq_table_id    = "tbl_march_test_tbl"
