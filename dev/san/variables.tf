@@ -14,3 +14,15 @@ variable "bucket_suffix" {
   type        = string
   default     = "vj"
 }
+
+variable "bq_dataset_id" {
+  description = "BigQuery dataset ID"
+  type        = string
+  default     = "ds_mar26_test"
+}
+
+variable "bq_table_id" {
+  description = "BigQuery table ID"
+  type        = string
+  default     = "tbl_march_test_tbl"
+}

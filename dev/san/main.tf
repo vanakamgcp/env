@@ -41,3 +41,38 @@ resource "google_storage_bucket" "gcs_buckets" {
     owner       = var.bucket_suffix
   }
 }
+
+# BigQuery dataset and table for March test
+resource "google_bigquery_dataset" "ds_mar26_test" {
+  dataset_id                  = var.bq_dataset_id
+  project                     = var.project_id
+  location                    = var.region
+  default_table_expiration_ms = 86400000 # 1 day expiration (optional)
+  labels = {
+    environment = "dev"
+    owner       = var.bucket_suffix
+  }
+}
+
+resource "google_bigquery_table" "tbl_march_test_tbl" {
+  dataset_id = google_bigquery_dataset.ds_mar26_test.dataset_id
+  table_id   = var.bq_table_id
+  project    = var.project_id
+
+  schema = <<EOF
+[
+  {
+    "name": "id",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "created_at",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE"
+  }
+]
+EOF
+
+  expiration_time = null
+}
